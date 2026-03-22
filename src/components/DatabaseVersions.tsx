@@ -149,7 +149,6 @@ export default function DatabaseVersions({ databaseId }: { databaseId: string })
   }, [versions, filterVersionId, filterDate]);
 
   const activeVersion = selectedVersion || (filteredVersions.length > 0 ? filteredVersions[0] : null);
-  const identifyingCols = useMemo(() => getIdentifyingColumns(allColumns), [allColumns]);
   
   const activeData = useMemo(() => {
     const raw = activeVersion?.data || [];
@@ -163,6 +162,7 @@ export default function DatabaseVersions({ databaseId }: { databaseId: string })
 
   const allColumns = variables.map(v => v.name);
   const orderedVisible = allColumns.filter(c => visibleColumns.has(c));
+  const identifyingCols = useMemo(() => getIdentifyingColumns(allColumns), [allColumns]);
   const totalPages = Math.ceil(activeData.length / pageSize);
   const pageData = activeData.slice(page * pageSize, (page + 1) * pageSize);
 
