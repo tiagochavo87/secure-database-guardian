@@ -47,6 +47,39 @@ export type Database = {
         }
         Relationships: []
       }
+      backup_settings: {
+        Row: {
+          config: Json
+          created_at: string
+          created_by: string
+          enabled: boolean
+          id: string
+          label: string
+          setting_type: string
+          updated_at: string
+        }
+        Insert: {
+          config?: Json
+          created_at?: string
+          created_by: string
+          enabled?: boolean
+          id?: string
+          label?: string
+          setting_type: string
+          updated_at?: string
+        }
+        Update: {
+          config?: Json
+          created_at?: string
+          created_by?: string
+          enabled?: boolean
+          id?: string
+          label?: string
+          setting_type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       database_variables: {
         Row: {
           category: string
