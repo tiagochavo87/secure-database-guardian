@@ -1,12 +1,57 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
-import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
+import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import Index from "./pages/Index.tsx";
-import NotFound from "./pages/NotFound.tsx";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { SidebarProvider } from "@/components/ui/sidebar";
+import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { AppSidebar } from "@/components/AppSidebar";
+import { AppHeader } from "@/components/AppHeader";
+import Dashboard from "@/pages/Dashboard";
+import DiseaseDatabases from "@/pages/DiseaseDatabases";
+import SettingsPage from "@/pages/SettingsPage";
+import AdminPage from "@/pages/AdminPage";
+import LoginPage from "@/pages/LoginPage";
+import ResetPasswordPage from "@/pages/ResetPasswordPage";
+import PendingApprovalPage from "@/pages/PendingApprovalPage";
+import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
+
+function ProtectedLayout() {
+  const { user, profile, loading } = useAuth();
+
+  if (loading) return <div className="flex items-center justify-center min-h-screen"><div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" /></div>;
+  if (!user) return <Navigate to="/login" />;
+  if (profile && !profile.approved) return <PendingApprovalPage />;
+
+  return (
+    <SidebarProvider>
+      <div className="flex min-h-screen w-full">
+        <AppSidebar />
+        <div className="flex-1 flex flex-col">
+          <AppHeader />
+          <main className="flex-1 p-4 lg:p-6 overflow-auto">
+            <Routes>
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/diseases" element={<DiseaseDatabases />} />
+              <Route path="/settings" element={<SettingsPage />} />
+              <Route path="/admin" element={<AdminPage />} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </main>
+        </div>
+      </div>
+    </SidebarProvider>
+  );
+}
+
+function AuthRoutes() {
+  const { user, loading } = useAuth();
+  if (loading) return <div className="flex items-center justify-center min-h-screen"><div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" /></div>;
+  if (user) return <Navigate to="/" />;
+  return <LoginPage />;
+}
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -14,11 +59,13 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+        <AuthProvider>
+          <Routes>
+            <Route path="/login" element={<AuthRoutes />} />
+            <Route path="/reset-password" element={<ResetPasswordPage />} />
+            <Route path="/*" element={<ProtectedLayout />} />
+          </Routes>
+        </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
