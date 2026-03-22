@@ -220,6 +220,7 @@ export default function DatabaseVersions({ databaseId }: { databaseId: string })
       toast.success("Arquivo TXT exportado!");
     }
     logActivity("data_exported", "version", activeVersion?.id, { format, records: activeData.length });
+    logSensitiveAccess("export", "version", activeVersion?.id, { format, records: activeData.length, masked: !isAdmin });
   };
 
   // Version comparison
