@@ -60,6 +60,8 @@ function ProtectedLayout() {
                 <Route path="/versions" element={<VersionManager />} />
                 <Route path="/ld-analysis" element={<LDAnalysisPage />} />
                 <Route path="/settings" element={<SettingsPage />} />
+                <Route path="/my-data" element={<MyDataPage />} />
+                <Route path="/privacy" element={<PrivacyPolicyPage />} />
                 <Route path="/admin" element={<AdminPage />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
