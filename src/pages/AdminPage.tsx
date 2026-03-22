@@ -9,8 +9,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/hooks/use-toast";
-import { CheckCircle, XCircle, Shield, ShieldAlert, Users, UserCheck, UserX, Eye, Clock, Building2, GraduationCap, UserCheck as UserCheckIcon, FlaskConical, History } from "lucide-react";
+import { CheckCircle, XCircle, Shield, ShieldAlert, Users, UserCheck, UserX, Eye, Clock, Building2, GraduationCap, UserCheck as UserCheckIcon, FlaskConical, History, HardDrive } from "lucide-react";
 import { logActivity } from "@/lib/activityLog";
+import BackupSettings from "@/components/BackupSettings";
 
 interface UserProfile {
   id: string;
