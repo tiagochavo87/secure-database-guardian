@@ -149,14 +149,17 @@ export default function DatabaseVersions({ databaseId }: { databaseId: string })
   }, [versions, filterVersionId, filterDate]);
 
   const activeVersion = selectedVersion || (filteredVersions.length > 0 ? filteredVersions[0] : null);
+  const identifyingCols = useMemo(() => getIdentifyingColumns(allColumns), [allColumns]);
+  
   const activeData = useMemo(() => {
-    const data = activeVersion?.data || [];
-    if (!searchData.trim()) return data;
+    const raw = activeVersion?.data || [];
+    const masked = maskDataset(raw, isAdmin);
+    if (!searchData.trim()) return masked;
     const q = searchData.toLowerCase();
-    return data.filter(row =>
+    return masked.filter(row =>
       Object.values(row).some(val => val != null && String(val).toLowerCase().includes(q))
     );
-  }, [activeVersion, searchData]);
+  }, [activeVersion, searchData, isAdmin]);
 
   const allColumns = variables.map(v => v.name);
   const orderedVisible = allColumns.filter(c => visibleColumns.has(c));
