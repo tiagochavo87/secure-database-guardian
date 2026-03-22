@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Database, FlaskConical, Trash2, Variable, Calendar, Layers, Search, X, Upload, FileSpreadsheet } from "lucide-react";
+import UpdateDatabaseDialog from "@/components/UpdateDatabaseDialog";
 import { toast } from "sonner";
 import DatabaseVariables from "@/components/DatabaseVariables";
 import DatabaseVersions from "@/components/DatabaseVersions";
