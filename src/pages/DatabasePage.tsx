@@ -112,15 +112,17 @@ export default function DatabasePage() {
   const activeVersion = versions.find((v) => v.id === selectedVersionId);
   const allColumns = variables.map((v) => v.name);
   const orderedVisible = allColumns.filter((c) => visibleColumns.has(c));
+  const identifyingCols = useMemo(() => getIdentifyingColumns(allColumns), [allColumns]);
 
   const activeData = useMemo(() => {
-    const data = activeVersion?.data || [];
-    if (!searchData.trim()) return data;
+    const raw = activeVersion?.data || [];
+    const masked = maskDataset(raw, isAdmin);
+    if (!searchData.trim()) return masked;
     const q = searchData.toLowerCase();
-    return data.filter((row) =>
+    return masked.filter((row) =>
       Object.values(row).some((val) => val != null && String(val).toLowerCase().includes(q))
     );
-  }, [activeVersion, searchData]);
+  }, [activeVersion, searchData, isAdmin]);
 
   const totalPages = Math.ceil(activeData.length / pageSize);
   const pageData = activeData.slice(page * pageSize, (page + 1) * pageSize);
