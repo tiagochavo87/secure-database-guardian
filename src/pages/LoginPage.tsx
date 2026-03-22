@@ -70,6 +70,10 @@ export default function LoginPage() {
       setError("Preencha todos os campos obrigatórios.");
       return;
     }
+    if (!lgpdConsent) {
+      setError("Você precisa aceitar a Política de Privacidade e os Termos de Uso para se cadastrar.");
+      return;
+    }
     if (password.length < 6) {
       setError("A senha deve ter pelo menos 6 caracteres.");
       return;
