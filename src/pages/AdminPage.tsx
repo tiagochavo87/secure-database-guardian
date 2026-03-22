@@ -246,6 +246,10 @@ export default function AdminPage() {
           </Card>
         </TabsContent>
 
+        <TabsContent value="backup">
+          <BackupSettings />
+        </TabsContent>
+
         <TabsContent value="activity">
           <Card>
             <CardHeader>
