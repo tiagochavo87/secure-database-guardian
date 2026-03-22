@@ -43,6 +43,7 @@ const PAGE_SIZES = [10, 25, 50];
 
 export default function DatabaseVersions({ databaseId }: { databaseId: string }) {
   const { user } = useAuth();
+  const { isAdmin } = useAdminCheck();
   const [versions, setVersions] = useState<Version[]>([]);
   const [variables, setVariables] = useState<Variable[]>([]);
   const [loading, setLoading] = useState(true);
