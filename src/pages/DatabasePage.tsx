@@ -348,6 +348,12 @@ export default function DatabasePage() {
         <div className="flex items-center gap-3 flex-wrap">
           <Badge variant="secondary" className="text-xs">{activeData.length} registros</Badge>
           <Badge variant="outline" className="text-xs">{orderedVisible.length} colunas visíveis</Badge>
+          {!isAdmin && identifyingCols.length > 0 && (
+            <Badge variant="outline" className="text-xs gap-1 border-amber-500/50 text-amber-600">
+              <ShieldAlert className="h-3 w-3" />
+              {identifyingCols.length} coluna(s) mascarada(s) — LGPD
+            </Badge>
+          )}
           {searchData && (
             <Badge variant="secondary" className="text-xs">{activeData.length} resultado(s)</Badge>
           )}
