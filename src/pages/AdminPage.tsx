@@ -161,6 +161,7 @@ export default function AdminPage() {
       <Tabs defaultValue="users" className="space-y-4">
         <TabsList>
           <TabsTrigger value="users" className="gap-2"><Users className="h-4 w-4" /> Usuários</TabsTrigger>
+          <TabsTrigger value="backup" className="gap-2"><HardDrive className="h-4 w-4" /> Backup</TabsTrigger>
           <TabsTrigger value="activity" className="gap-2"><History className="h-4 w-4" /> Log de Atividades</TabsTrigger>
         </TabsList>
 
