@@ -20,45 +20,101 @@ export default function FilePreview({ file, maxRows = 20, onParsed }: FilePrevie
     let cancelled = false;
     setLoading(true);
     setError(null);
+
     parseUploadedFile(file)
       .then((rows) => {
         if (cancelled) return;
         if (rows.length === 0) {
-          setError("Nenhum dado encontrado no arquivo.");
-          setData([]); setColumns([]);
+          setError("Nenhum dado encontrado no arquivo. O arquivo parece ter apenas cabeçalhos, sem linhas de registros.");
+          setData([]);
+          setColumns([]);
           onParsed?.([], []);
         } else {
           const cols = Object.keys(rows[0]);
-          setData(rows); setColumns(cols);
+          setData(rows);
+          setColumns(cols);
           onParsed?.(rows, cols);
         }
       })
-      .catch(() => { if (!cancelled) { setError("Erro ao processar o arquivo."); setData([]); setColumns([]); onParsed?.([], []); } })
-      .finally(() => { if (!cancelled) setLoading(false); });
+      .catch(() => {
+        if (cancelled) return;
+        setError("Erro ao processar o arquivo.");
+        setData([]);
+        setColumns([]);
+        onParsed?.([], []);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
     return () => { cancelled = true; };
   }, [file]);
 
-  if (loading) return <div className="flex items-center gap-2 p-4 text-muted-foreground"><FileSpreadsheet className="w-5 h-5 animate-pulse" />Processando arquivo…</div>;
-  if (error) return <div className="flex items-center gap-2 p-4 text-destructive"><AlertCircle className="w-5 h-5" />{error}</div>;
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-6 gap-2 text-sm text-muted-foreground">
+        <div className="h-4 w-4 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+        Processando arquivo…
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+        <AlertCircle className="h-4 w-4 shrink-0" />
+        {error}
+      </div>
+    );
+  }
 
   const preview = data.slice(0, maxRows);
   const visibleCols = columns.slice(0, 15);
 
   return (
     <div className="space-y-2">
-      <div className="flex gap-2 flex-wrap">
-        <Badge variant="secondary"><CheckCircle2 className="w-3 h-3 mr-1" />{data.length} registros</Badge>
-        <Badge variant="outline">{columns.length} colunas</Badge>
+      <div className="flex items-center gap-2 flex-wrap">
+        <Badge variant="outline" className="gap-1 text-xs">
+          <CheckCircle2 className="h-3 w-3 text-primary" />
+          {data.length} registros
+        </Badge>
+        <Badge variant="outline" className="gap-1 text-xs">
+          <FileSpreadsheet className="h-3 w-3" />
+          {columns.length} colunas
+        </Badge>
+        {data.length > maxRows && (
+          <span className="text-xs text-muted-foreground">
+            (mostrando primeiras {maxRows} linhas)
+          </span>
+        )}
+        {columns.length > 15 && (
+          <span className="text-xs text-muted-foreground">
+            (mostrando primeiras 15 colunas)
+          </span>
+        )}
       </div>
-      <div className="overflow-auto max-h-[300px] border rounded-lg">
+
+      <div className="rounded-lg border bg-card overflow-x-auto max-h-[300px] overflow-y-auto">
         <Table>
-          <TableHeader><TableRow><TableHead className="w-10">#</TableHead>
-            {visibleCols.map(col => <TableHead key={col} className="text-xs whitespace-nowrap">{col}</TableHead>)}
-          </TableRow></TableHeader>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="text-xs text-muted-foreground w-10">#</TableHead>
+              {visibleCols.map((col) => (
+                <TableHead key={col} className="whitespace-nowrap text-xs font-mono">
+                  {col}
+                </TableHead>
+              ))}
+            </TableRow>
+          </TableHeader>
           <TableBody>
             {preview.map((row, i) => (
-              <TableRow key={i}><TableCell className="text-xs">{i + 1}</TableCell>
-                {visibleCols.map(col => <TableCell key={col} className="text-xs max-w-[150px] truncate">{row[col] != null ? String(row[col]) : ""}</TableCell>)}
+              <TableRow key={i}>
+                <TableCell className="text-xs text-muted-foreground">{i + 1}</TableCell>
+                {visibleCols.map((col) => (
+                  <TableCell key={col} className="text-xs whitespace-nowrap max-w-[200px] truncate">
+                    {row[col] != null ? String(row[col]) : ""}
+                  </TableCell>
+                ))}
               </TableRow>
             ))}
           </TableBody>

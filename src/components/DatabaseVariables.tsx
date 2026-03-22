@@ -7,21 +7,34 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, GripVertical } from "lucide-react";
 import { toast } from "sonner";
 
 interface Variable {
-  id: string; database_id: string; name: string; variable_type: string; category: string; description: string; sort_order: number;
+  id: string;
+  database_id: string;
+  name: string;
+  variable_type: string;
+  category: string;
+  description: string;
+  sort_order: number;
 }
 
 const VARIABLE_TYPES = [
-  { value: "text", label: "Texto" }, { value: "number", label: "Numérico" },
-  { value: "integer", label: "Inteiro" }, { value: "boolean", label: "Sim/Não" },
-  { value: "date", label: "Data" }, { value: "genotype", label: "Genótipo" },
+  { value: "text", label: "Texto" },
+  { value: "number", label: "Numérico" },
+  { value: "integer", label: "Inteiro" },
+  { value: "boolean", label: "Sim/Não" },
+  { value: "date", label: "Data" },
+  { value: "genotype", label: "Genótipo (ex: AA, AG, GG)" },
   { value: "category", label: "Categórico" },
 ];
 
-const DEFAULT_CATEGORIES = ["Demografia", "Genética e Imunologia", "Desfechos", "Sintomas", "Comorbidades", "Exames Hematológicos", "Exames Bioquímicos", "Gasometria", "Biomarcadores", "Geral"];
+const DEFAULT_CATEGORIES = [
+  "Demografia", "Genética e Imunologia", "Desfechos", "Sintomas",
+  "Comorbidades", "Exames Hematológicos", "Exames Bioquímicos",
+  "Gasometria", "Biomarcadores", "Geral"
+];
 
 export default function DatabaseVariables({ databaseId }: { databaseId: string }) {
   const [variables, setVariables] = useState<Variable[]>([]);
@@ -30,11 +43,16 @@ export default function DatabaseVariables({ databaseId }: { databaseId: string }
   const [name, setName] = useState("");
   const [varType, setVarType] = useState("text");
   const [category, setCategory] = useState("Geral");
+  const [customCategory, setCustomCategory] = useState("");
   const [description, setDescription] = useState("");
 
   const fetchVariables = async () => {
-    const { data } = await supabase.from("database_variables").select("*").eq("database_id", databaseId).order("sort_order");
-    setVariables(data || []);
+    const { data, error } = await supabase
+      .from("database_variables")
+      .select("*")
+      .eq("database_id", databaseId)
+      .order("sort_order", { ascending: true });
+    if (!error) setVariables(data || []);
     setLoading(false);
   };
 
@@ -42,12 +60,23 @@ export default function DatabaseVariables({ databaseId }: { databaseId: string }
 
   const handleAdd = async () => {
     if (!name.trim()) return;
+    const finalCategory = category === "__custom" ? customCategory.trim() : category;
     const { error } = await supabase.from("database_variables").insert({
-      database_id: databaseId, name: name.trim(), variable_type: varType,
-      category: category || "Geral", description: description.trim(), sort_order: variables.length,
+      database_id: databaseId,
+      name: name.trim(),
+      variable_type: varType,
+      category: finalCategory || "Geral",
+      description: description.trim(),
+      sort_order: variables.length,
     });
-    if (error) toast.error("Erro ao adicionar");
-    else { toast.success("Variável adicionada!"); setName(""); setVarType("text"); setCategory("Geral"); setDescription(""); setAddOpen(false); fetchVariables(); }
+    if (error) {
+      toast.error("Erro ao adicionar variável");
+    } else {
+      toast.success("Variável adicionada!");
+      setName(""); setVarType("text"); setCategory("Geral"); setDescription(""); setCustomCategory("");
+      setAddOpen(false);
+      fetchVariables();
+    }
   };
 
   const handleDelete = async (id: string) => {
@@ -56,59 +85,117 @@ export default function DatabaseVariables({ databaseId }: { databaseId: string }
     else { toast.success("Variável excluída"); fetchVariables(); }
   };
 
-  const grouped = variables.reduce<Record<string, Variable[]>>((acc, v) => {
+  const groupedVars = variables.reduce<Record<string, Variable[]>>((acc, v) => {
     (acc[v.category] = acc[v.category] || []).push(v);
     return acc;
   }, {});
 
+  const typeLabel = (t: string) => VARIABLE_TYPES.find(vt => vt.value === t)?.label || t;
+
+  const typeBadgeColor = (t: string) => {
+    const map: Record<string, string> = {
+      number: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
+      integer: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300",
+      text: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300",
+      boolean: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
+      genotype: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300",
+      date: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300",
+      category: "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300",
+    };
+    return map[t] || map.text;
+  };
+
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div><CardTitle>Variáveis</CardTitle><p className="text-sm text-muted-foreground">{variables.length} variáveis definidas</p></div>
-          <Dialog open={addOpen} onOpenChange={setAddOpen}>
-            <DialogTrigger asChild><Button size="sm" className="gap-1"><Plus className="w-4 h-4" />Adicionar</Button></DialogTrigger>
-            <DialogContent>
-              <DialogHeader><DialogTitle>Nova Variável</DialogTitle></DialogHeader>
-              <div className="space-y-3">
-                <Input placeholder="Nome da variável" value={name} onChange={(e) => setName(e.target.value)} />
-                <Select value={varType} onValueChange={setVarType}><SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>{VARIABLE_TYPES.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}</SelectContent></Select>
-                <Select value={category} onValueChange={setCategory}><SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>{DEFAULT_CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select>
-                <Input placeholder="Descrição (opcional)" value={description} onChange={(e) => setDescription(e.target.value)} />
-                <Button onClick={handleAdd} className="w-full">Adicionar</Button>
-              </div>
-            </DialogContent>
-          </Dialog>
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-lg font-semibold font-display">Variáveis</h3>
+          <p className="text-sm text-muted-foreground">{variables.length} variáveis definidas</p>
         </div>
-      </CardHeader>
-      <CardContent>
-        {loading ? <div className="flex justify-center py-8"><div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full" /></div> : variables.length === 0 ? (
-          <p className="text-center text-muted-foreground py-8">Nenhuma variável definida.</p>
-        ) : (
-          <div className="space-y-4">
-            {Object.entries(grouped).map(([cat, vars]) => (
-              <div key={cat}>
-                <h4 className="font-semibold text-sm mb-2">{cat} <Badge variant="secondary">{vars.length}</Badge></h4>
+        <Dialog open={addOpen} onOpenChange={setAddOpen}>
+          <DialogTrigger asChild>
+            <Button size="sm" className="gap-2"><Plus className="h-4 w-4" /> Adicionar Variável</Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Nova Variável</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3 pt-2">
+              <Input placeholder="Nome da variável (ex: IL6, Idade, Genótipo_rs123)" value={name} onChange={e => setName(e.target.value)} />
+              <Select value={varType} onValueChange={setVarType}>
+                <SelectTrigger><SelectValue placeholder="Tipo" /></SelectTrigger>
+                <SelectContent>
+                  {VARIABLE_TYPES.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Select value={category} onValueChange={setCategory}>
+                <SelectTrigger><SelectValue placeholder="Categoria" /></SelectTrigger>
+                <SelectContent>
+                  {DEFAULT_CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                  <SelectItem value="__custom">+ Nova Categoria</SelectItem>
+                </SelectContent>
+              </Select>
+              {category === "__custom" && (
+                <Input placeholder="Nome da nova categoria" value={customCategory} onChange={e => setCustomCategory(e.target.value)} />
+              )}
+              <Input placeholder="Descrição (opcional)" value={description} onChange={e => setDescription(e.target.value)} />
+              <Button onClick={handleAdd} disabled={!name.trim()} className="w-full">Adicionar</Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      {loading ? (
+        <div className="flex justify-center py-8">
+          <div className="h-6 w-6 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+        </div>
+      ) : variables.length === 0 ? (
+        <Card className="border-dashed">
+          <CardContent className="flex flex-col items-center py-8 text-center">
+            <p className="text-sm text-muted-foreground">Nenhuma variável definida. Adicione variáveis para estruturar seus dados.</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-4">
+          {Object.entries(groupedVars).map(([cat, vars]) => (
+            <Card key={cat}>
+              <CardHeader className="py-3 px-4">
+                <CardTitle className="text-sm font-display">{cat} <Badge variant="outline" className="ml-2 text-xs">{vars.length}</Badge></CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
                 <Table>
-                  <TableHeader><TableRow><TableHead>Nome</TableHead><TableHead>Tipo</TableHead><TableHead>Descrição</TableHead><TableHead></TableHead></TableRow></TableHeader>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-xs">Nome</TableHead>
+                      <TableHead className="text-xs">Tipo</TableHead>
+                      <TableHead className="text-xs">Descrição</TableHead>
+                      <TableHead className="text-xs w-[60px]"></TableHead>
+                    </TableRow>
+                  </TableHeader>
                   <TableBody>
                     {vars.map(v => (
                       <TableRow key={v.id}>
-                        <TableCell className="font-medium">{v.name}</TableCell>
-                        <TableCell><Badge variant="outline">{VARIABLE_TYPES.find(t => t.value === v.variable_type)?.label || v.variable_type}</Badge></TableCell>
-                        <TableCell className="text-muted-foreground">{v.description || "—"}</TableCell>
-                        <TableCell><Button variant="ghost" size="icon" onClick={() => handleDelete(v.id)}><Trash2 className="w-4 h-4 text-destructive" /></Button></TableCell>
+                        <TableCell className="font-mono text-sm font-medium">{v.name}</TableCell>
+                        <TableCell>
+                          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${typeBadgeColor(v.variable_type)}`}>
+                            {typeLabel(v.variable_type)}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground">{v.description || "—"}</TableCell>
+                        <TableCell>
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleDelete(v.id)}>
+                            <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                          </Button>
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
                 </Table>
-              </div>
-            ))}
-          </div>
-        )}
-      </CardContent>
-    </Card>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
