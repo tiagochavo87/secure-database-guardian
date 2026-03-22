@@ -28,6 +28,7 @@ export default function LoginPage() {
   const [laboratory, setLaboratory] = useState("LAPOGE");
   const [role, setRole] = useState("");
   const [institution, setInstitution] = useState("");
+  const [lgpdConsent, setLgpdConsent] = useState(false);
   const [program, setProgram] = useState("");
   const [advisor, setAdvisor] = useState("");
   const [error, setError] = useState("");
