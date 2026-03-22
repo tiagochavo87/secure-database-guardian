@@ -38,7 +38,7 @@ export default function LoginPage() {
   const resetForm = () => {
     setEmail(""); setPassword(""); setFullName(""); setLaboratory("LAPOGE");
     setRole(""); setInstitution(""); setProgram(""); setAdvisor("");
-    setError(""); setSuccess("");
+    setError(""); setSuccess(""); setLgpdConsent(false);
   };
 
   const handleLogin = async (e: React.FormEvent) => {
