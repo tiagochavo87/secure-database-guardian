@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Dna } from "lucide-react";
+import { Dna, Shield } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
