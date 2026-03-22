@@ -157,6 +157,14 @@ O e-mail `chaves.smo@gmail.com` é automaticamente aprovado e recebe o papel de 
 
 ---
 
+## 👨‍💻 Autor
+
+**Tiago Fernando Chaves**  
+Contato: chaves.smo@gmail.com
+
+---
+
 ## 📄 Licença
 
-Projeto desenvolvido para uso interno do LAPOGE — Laboratório de Genética e Biodiversidade.
+Projeto desenvolvido para uso interno do LAPOGE — Laboratório de Genética e Biodiversidade.  
+Todos os direitos reservados © Tiago Fernando Chaves.
