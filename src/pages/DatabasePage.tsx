@@ -1,6 +1,9 @@
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAdminCheck } from "@/hooks/useAdminCheck";
+import { maskDataset, getIdentifyingColumns } from "@/lib/dataMasking";
+import { logSensitiveAccess } from "@/lib/sensitiveAccessLog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -9,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Columns3, ChevronLeft, ChevronRight, FileSpreadsheet, FileText, Database, Layers, Search, X } from "lucide-react";
+import { Columns3, ChevronLeft, ChevronRight, FileSpreadsheet, FileText, Database, Layers, Search, X, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
 
