@@ -19,6 +19,8 @@ import ResetPasswordPage from "@/pages/ResetPasswordPage";
 import PendingApprovalPage from "@/pages/PendingApprovalPage";
 import LDAnalysisPage from "@/pages/LDAnalysisPage";
 import DescriptiveStatsPage from "@/pages/DescriptiveStatsPage";
+import PrivacyPolicyPage from "@/pages/PrivacyPolicyPage";
+import MyDataPage from "@/pages/MyDataPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
