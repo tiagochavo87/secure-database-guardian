@@ -19,6 +19,8 @@ import ResetPasswordPage from "@/pages/ResetPasswordPage";
 import PendingApprovalPage from "@/pages/PendingApprovalPage";
 import LDAnalysisPage from "@/pages/LDAnalysisPage";
 import DescriptiveStatsPage from "@/pages/DescriptiveStatsPage";
+import PrivacyPolicyPage from "@/pages/PrivacyPolicyPage";
+import MyDataPage from "@/pages/MyDataPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -58,6 +60,8 @@ function ProtectedLayout() {
                 <Route path="/versions" element={<VersionManager />} />
                 <Route path="/ld-analysis" element={<LDAnalysisPage />} />
                 <Route path="/settings" element={<SettingsPage />} />
+                <Route path="/my-data" element={<MyDataPage />} />
+                <Route path="/privacy" element={<PrivacyPolicyPage />} />
                 <Route path="/admin" element={<AdminPage />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
@@ -94,6 +98,7 @@ const App = () => (
           <Routes>
             <Route path="/login" element={<AuthRoutes />} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />
+            <Route path="/privacy-public" element={<PrivacyPolicyPage />} />
             <Route path="/*" element={<ProtectedLayout />} />
           </Routes>
         </AuthProvider>

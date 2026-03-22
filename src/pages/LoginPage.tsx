@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Dna } from "lucide-react";
+import { Dna, Shield } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -27,6 +28,7 @@ export default function LoginPage() {
   const [laboratory, setLaboratory] = useState("LAPOGE");
   const [role, setRole] = useState("");
   const [institution, setInstitution] = useState("");
+  const [lgpdConsent, setLgpdConsent] = useState(false);
   const [program, setProgram] = useState("");
   const [advisor, setAdvisor] = useState("");
   const [error, setError] = useState("");
@@ -36,7 +38,7 @@ export default function LoginPage() {
   const resetForm = () => {
     setEmail(""); setPassword(""); setFullName(""); setLaboratory("LAPOGE");
     setRole(""); setInstitution(""); setProgram(""); setAdvisor("");
-    setError(""); setSuccess("");
+    setError(""); setSuccess(""); setLgpdConsent(false);
   };
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -66,6 +68,10 @@ export default function LoginPage() {
     setError(""); setSuccess("");
     if (!fullName.trim() || !role || !institution.trim()) {
       setError("Preencha todos os campos obrigatórios.");
+      return;
+    }
+    if (!lgpdConsent) {
+      setError("Você precisa aceitar a Política de Privacidade e os Termos de Uso para se cadastrar.");
       return;
     }
     if (password.length < 6) {
@@ -277,7 +283,23 @@ export default function LoginPage() {
                     <Input type="text" placeholder="LAPOGE" value={laboratory} onChange={(e) => setLaboratory(e.target.value)} className="pl-10 h-11" />
                   </div>
                 </div>
-                <Button type="submit" className="w-full h-11 font-medium text-sm" disabled={loading}>
+                <div className="flex items-start gap-2 pt-1">
+                  <Checkbox
+                    id="lgpd-consent"
+                    checked={lgpdConsent}
+                    onCheckedChange={(checked) => setLgpdConsent(checked === true)}
+                    className="mt-0.5"
+                  />
+                  <label htmlFor="lgpd-consent" className="text-xs text-muted-foreground leading-relaxed cursor-pointer">
+                    <Shield className="inline h-3 w-3 mr-1 text-primary" />
+                    Li e aceito a{" "}
+                    <a href="/privacy" target="_blank" className="text-primary hover:underline font-medium">
+                      Política de Privacidade
+                    </a>{" "}
+                    e os Termos de Uso, incluindo o tratamento de dados pessoais sensíveis conforme a LGPD (Lei 13.709/2018).
+                  </label>
+                </div>
+                <Button type="submit" className="w-full h-11 font-medium text-sm" disabled={loading || !lgpdConsent}>
                   {loading ? "Cadastrando..." : "Solicitar Cadastro"}
                 </Button>
               </form>

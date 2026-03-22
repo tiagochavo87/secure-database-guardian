@@ -1,6 +1,9 @@
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAdminCheck } from "@/hooks/useAdminCheck";
+import { maskDataset, getIdentifyingColumns } from "@/lib/dataMasking";
+import { logSensitiveAccess } from "@/lib/sensitiveAccessLog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,7 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Upload, Download, FileSpreadsheet, FileText, Calendar, Layers, Columns3, ChevronLeft, ChevronRight, GitCompare, Search, X } from "lucide-react";
+import { Plus, Upload, Download, FileSpreadsheet, FileText, Calendar, Layers, Columns3, ChevronLeft, ChevronRight, GitCompare, Search, X, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
 import { logActivity } from "@/lib/activityLog";
@@ -40,6 +43,7 @@ const PAGE_SIZES = [10, 25, 50];
 
 export default function DatabaseVersions({ databaseId }: { databaseId: string }) {
   const { user } = useAuth();
+  const { isAdmin } = useAdminCheck();
   const [versions, setVersions] = useState<Version[]>([]);
   const [variables, setVariables] = useState<Variable[]>([]);
   const [loading, setLoading] = useState(true);
@@ -145,17 +149,20 @@ export default function DatabaseVersions({ databaseId }: { databaseId: string })
   }, [versions, filterVersionId, filterDate]);
 
   const activeVersion = selectedVersion || (filteredVersions.length > 0 ? filteredVersions[0] : null);
+  
   const activeData = useMemo(() => {
-    const data = activeVersion?.data || [];
-    if (!searchData.trim()) return data;
+    const raw = activeVersion?.data || [];
+    const masked = maskDataset(raw, isAdmin);
+    if (!searchData.trim()) return masked;
     const q = searchData.toLowerCase();
-    return data.filter(row =>
+    return masked.filter(row =>
       Object.values(row).some(val => val != null && String(val).toLowerCase().includes(q))
     );
-  }, [activeVersion, searchData]);
+  }, [activeVersion, searchData, isAdmin]);
 
   const allColumns = variables.map(v => v.name);
   const orderedVisible = allColumns.filter(c => visibleColumns.has(c));
+  const identifyingCols = useMemo(() => getIdentifyingColumns(allColumns), [allColumns]);
   const totalPages = Math.ceil(activeData.length / pageSize);
   const pageData = activeData.slice(page * pageSize, (page + 1) * pageSize);
 
@@ -213,6 +220,7 @@ export default function DatabaseVersions({ databaseId }: { databaseId: string })
       toast.success("Arquivo TXT exportado!");
     }
     logActivity("data_exported", "version", activeVersion?.id, { format, records: activeData.length });
+    logSensitiveAccess("export", "version", activeVersion?.id, { format, records: activeData.length, masked: !isAdmin });
   };
 
   // Version comparison

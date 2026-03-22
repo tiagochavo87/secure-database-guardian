@@ -1,6 +1,9 @@
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAdminCheck } from "@/hooks/useAdminCheck";
+import { maskDataset, getIdentifyingColumns } from "@/lib/dataMasking";
+import { logSensitiveAccess } from "@/lib/sensitiveAccessLog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -9,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Columns3, ChevronLeft, ChevronRight, FileSpreadsheet, FileText, Database, Layers, Search, X } from "lucide-react";
+import { Columns3, ChevronLeft, ChevronRight, FileSpreadsheet, FileText, Database, Layers, Search, X, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
 
@@ -38,6 +41,7 @@ interface Variable {
 
 export default function DatabasePage() {
   const { profile } = useAuth();
+  const { isAdmin } = useAdminCheck();
 
   const [databases, setDatabases] = useState<DiseaseDB[]>([]);
   const [selectedDbId, setSelectedDbId] = useState<string>("");
@@ -108,15 +112,17 @@ export default function DatabasePage() {
   const activeVersion = versions.find((v) => v.id === selectedVersionId);
   const allColumns = variables.map((v) => v.name);
   const orderedVisible = allColumns.filter((c) => visibleColumns.has(c));
+  const identifyingCols = useMemo(() => getIdentifyingColumns(allColumns), [allColumns]);
 
   const activeData = useMemo(() => {
-    const data = activeVersion?.data || [];
-    if (!searchData.trim()) return data;
+    const raw = activeVersion?.data || [];
+    const masked = maskDataset(raw, isAdmin);
+    if (!searchData.trim()) return masked;
     const q = searchData.toLowerCase();
-    return data.filter((row) =>
+    return masked.filter((row) =>
       Object.values(row).some((val) => val != null && String(val).toLowerCase().includes(q))
     );
-  }, [activeVersion, searchData]);
+  }, [activeVersion, searchData, isAdmin]);
 
   const totalPages = Math.ceil(activeData.length / pageSize);
   const pageData = activeData.slice(page * pageSize, (page + 1) * pageSize);
@@ -342,6 +348,12 @@ export default function DatabasePage() {
         <div className="flex items-center gap-3 flex-wrap">
           <Badge variant="secondary" className="text-xs">{activeData.length} registros</Badge>
           <Badge variant="outline" className="text-xs">{orderedVisible.length} colunas visíveis</Badge>
+          {!isAdmin && identifyingCols.length > 0 && (
+            <Badge variant="outline" className="text-xs gap-1 border-amber-500/50 text-amber-600">
+              <ShieldAlert className="h-3 w-3" />
+              {identifyingCols.length} coluna(s) mascarada(s) — LGPD
+            </Badge>
+          )}
           {searchData && (
             <Badge variant="secondary" className="text-xs">{activeData.length} resultado(s)</Badge>
           )}

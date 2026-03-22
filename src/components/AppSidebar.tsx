@@ -1,4 +1,4 @@
-import { LayoutDashboard, Database, GitBranch, Settings, LogOut, User, FlaskConical, ShieldCheck, Dna, BarChart3 } from "lucide-react";
+import { LayoutDashboard, Database, GitBranch, Settings, LogOut, User, FlaskConical, ShieldCheck, Dna, BarChart3, Shield, FileHeart } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -25,6 +25,8 @@ const baseItems = [
   { title: "Estatísticas Descritivas", url: "/descriptive-stats", icon: BarChart3 },
   { title: "Gerenciador de Versões", url: "/versions", icon: GitBranch },
   { title: "Análise LD", url: "/ld-analysis", icon: Dna },
+  { title: "Meus Dados", url: "/my-data", icon: FileHeart },
+  { title: "Política de Privacidade", url: "/privacy", icon: Shield },
   { title: "Configurações", url: "/settings", icon: Settings },
 ];
 
