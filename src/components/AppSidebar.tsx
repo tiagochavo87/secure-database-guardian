@@ -25,6 +25,8 @@ const baseItems = [
   { title: "Estatísticas Descritivas", url: "/descriptive-stats", icon: BarChart3 },
   { title: "Gerenciador de Versões", url: "/versions", icon: GitBranch },
   { title: "Análise LD", url: "/ld-analysis", icon: Dna },
+  { title: "Meus Dados", url: "/my-data", icon: FileHeart },
+  { title: "Política de Privacidade", url: "/privacy", icon: Shield },
   { title: "Configurações", url: "/settings", icon: Settings },
 ];
 
