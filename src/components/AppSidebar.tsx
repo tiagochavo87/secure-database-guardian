@@ -1,4 +1,4 @@
-import { LayoutDashboard, Database, GitBranch, Settings, LogOut, User, FlaskConical, ShieldCheck, Dna, BarChart3 } from "lucide-react";
+import { LayoutDashboard, Database, GitBranch, Settings, LogOut, User, FlaskConical, ShieldCheck, Dna, BarChart3, Shield, FileHeart } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
