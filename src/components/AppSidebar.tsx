@@ -81,7 +81,7 @@ export function AppSidebar() {
           <div className="px-3 pb-2">
             <Separator className="mb-3 bg-sidebar-border" />
             <div
-              className="flex items-center gap-2.5 mb-3 cursor-pointer rounded-md p-1.5 -mx-1.5 hover:bg-sidebar-accent/60 transition-colors"
+              className="flex items-center gap-2.5 mb-1 cursor-pointer rounded-md p-1.5 -mx-1.5 hover:bg-sidebar-accent/60 transition-colors"
               onClick={() => navigate("/settings")}
               title="Editar perfil"
             >
@@ -95,6 +95,20 @@ export function AppSidebar() {
                 <p className="text-[10px] text-sidebar-foreground/50 truncate">{profile.role}</p>
               </div>
             </div>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild>
+                  <NavLink
+                    to="/my-data"
+                    className="hover:bg-sidebar-accent/60 transition-colors text-xs"
+                    activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
+                  >
+                    <FileHeart className="mr-2 h-4 w-4" />
+                    <span>Meus Dados</span>
+                  </NavLink>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
           </div>
         )}
         <SidebarMenu>
