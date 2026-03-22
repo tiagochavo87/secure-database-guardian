@@ -283,7 +283,23 @@ export default function LoginPage() {
                     <Input type="text" placeholder="LAPOGE" value={laboratory} onChange={(e) => setLaboratory(e.target.value)} className="pl-10 h-11" />
                   </div>
                 </div>
-                <Button type="submit" className="w-full h-11 font-medium text-sm" disabled={loading}>
+                <div className="flex items-start gap-2 pt-1">
+                  <Checkbox
+                    id="lgpd-consent"
+                    checked={lgpdConsent}
+                    onCheckedChange={(checked) => setLgpdConsent(checked === true)}
+                    className="mt-0.5"
+                  />
+                  <label htmlFor="lgpd-consent" className="text-xs text-muted-foreground leading-relaxed cursor-pointer">
+                    <Shield className="inline h-3 w-3 mr-1 text-primary" />
+                    Li e aceito a{" "}
+                    <a href="/privacy" target="_blank" className="text-primary hover:underline font-medium">
+                      Política de Privacidade
+                    </a>{" "}
+                    e os Termos de Uso, incluindo o tratamento de dados pessoais sensíveis conforme a LGPD (Lei 13.709/2018).
+                  </label>
+                </div>
+                <Button type="submit" className="w-full h-11 font-medium text-sm" disabled={loading || !lgpdConsent}>
                   {loading ? "Cadastrando..." : "Solicitar Cadastro"}
                 </Button>
               </form>
