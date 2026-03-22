@@ -177,17 +177,24 @@ export default function DiseaseDatabases() {
   if (selectedDb) {
     return (
       <div className="p-6 space-y-6">
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" onClick={() => setSelectedDb(null)}>← Voltar</Button>
-          <div>
-            <h2 className="text-2xl font-bold font-display flex items-center gap-2">
-              <FlaskConical className="h-6 w-6 text-accent" />
-              {selectedDb.name}
-            </h2>
-            <p className="text-sm text-muted-foreground">
-              Condição Clínica DB: <Badge variant="secondary">{selectedDb.disease}</Badge>
-            </p>
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" size="sm" onClick={() => setSelectedDb(null)}>← Voltar</Button>
+            <div>
+              <h2 className="text-2xl font-bold font-display flex items-center gap-2">
+                <FlaskConical className="h-6 w-6 text-accent" />
+                {selectedDb.name}
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                Condição Clínica DB: <Badge variant="secondary">{selectedDb.disease}</Badge>
+              </p>
+            </div>
           </div>
+          <UpdateDatabaseDialog
+            databaseId={selectedDb.id}
+            diseaseName={selectedDb.disease}
+            onVersionCreated={() => {}}
+          />
         </div>
 
         <Tabs defaultValue="variables" className="space-y-4">
