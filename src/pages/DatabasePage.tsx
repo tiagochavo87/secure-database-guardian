@@ -41,6 +41,7 @@ interface Variable {
 
 export default function DatabasePage() {
   const { profile } = useAuth();
+  const { isAdmin } = useAdminCheck();
 
   const [databases, setDatabases] = useState<DiseaseDB[]>([]);
   const [selectedDbId, setSelectedDbId] = useState<string>("");
