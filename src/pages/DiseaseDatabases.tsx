@@ -16,6 +16,7 @@ import DatabaseVersions from "@/components/DatabaseVersions";
 import { logActivity } from "@/lib/activityLog";
 import { parseUploadedFile } from "@/lib/fileParser";
 import FilePreview from "@/components/FilePreview";
+import { createSingleVersionBackup } from "@/lib/backupService";
 
 interface DiseaseDB {
   id: string;
@@ -109,6 +110,11 @@ export default function DiseaseDatabases() {
         } else {
           toast.success(`Banco criado com ${previewData.length} registros e ${previewColumns.length} variáveis!`);
           await logActivity("version_created", "version", undefined, { name: "v1.0 - Importação Inicial", records: previewData.length });
+          // AUTO BACKUP: Create backup of the initial import
+          const { data: newVersion } = await supabase.from("database_versions").select("*").eq("database_id", dbData.id).order("created_at", { ascending: false }).limit(1).single();
+          if (newVersion) {
+            await createSingleVersionBackup({ ...newVersion, data: Array.isArray(newVersion.data) ? newVersion.data : [] }, "initial_import");
+          }
         }
       } else if (selectedFile) {
         toast.warning("Arquivo sem dados válidos. Banco criado sem versão inicial.");
