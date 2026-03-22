@@ -3,16 +3,42 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/hooks/use-toast";
-import { CheckCircle, XCircle, Shield, Users } from "lucide-react";
+import { CheckCircle, XCircle, Shield, ShieldAlert, Users, UserCheck, UserX, Eye, Clock, Building2, GraduationCap, UserCheck as UserCheckIcon, FlaskConical, History } from "lucide-react";
 import { logActivity } from "@/lib/activityLog";
 
-interface UserProfile { id: string; user_id: string; full_name: string; role: string; laboratory: string; institution: string; approved: boolean; created_at: string; }
-interface UserRole { user_id: string; role: "admin" | "moderator" | "user"; }
+interface UserProfile {
+  id: string;
+  user_id: string;
+  full_name: string;
+  role: string;
+  laboratory: string;
+  institution: string;
+  program: string;
+  advisor: string;
+  approved: boolean;
+  created_at: string;
+}
+
+interface UserRole {
+  user_id: string;
+  role: "admin" | "moderator" | "user";
+}
+
+interface ActivityEntry {
+  id: string;
+  user_name: string;
+  action: string;
+  entity_type: string;
+  entity_id: string | null;
+  details: Record<string, unknown>;
+  created_at: string;
+}
 
 export default function AdminPage() {
   const { user } = useAuth();
@@ -20,75 +46,319 @@ export default function AdminPage() {
   const [userRoles, setUserRoles] = useState<UserRole[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [selectedProfile, setSelectedProfile] = useState<UserProfile | null>(null);
+  const [activityLog, setActivityLog] = useState<ActivityEntry[]>([]);
 
-  useEffect(() => { checkAdmin(); }, [user]);
+  useEffect(() => { checkAdminAndLoad(); }, [user]);
 
-  const checkAdmin = async () => {
+  const checkAdminAndLoad = async () => {
     if (!user) return;
-    const { data } = await supabase.from("user_roles").select("*").eq("user_id", user.id).eq("role", "admin");
-    if (!data || data.length === 0) { setIsAdmin(false); setLoading(false); return; }
+    const { data: roleData } = await supabase
+      .from("user_roles").select("*").eq("user_id", user.id).eq("role", "admin");
+    if (!roleData || roleData.length === 0) { setIsAdmin(false); setLoading(false); return; }
     setIsAdmin(true);
     await loadData();
     setLoading(false);
   };
 
   const loadData = async () => {
-    const [p, r] = await Promise.all([
+    const [profilesRes, rolesRes, logRes] = await Promise.all([
       supabase.from("profiles").select("*").order("created_at", { ascending: false }),
       supabase.from("user_roles").select("*"),
+      supabase.from("activity_log").select("*").order("created_at", { ascending: false }).limit(50),
     ]);
-    if (p.data) setProfiles(p.data as UserProfile[]);
-    if (r.data) setUserRoles(r.data as UserRole[]);
+    if (profilesRes.data) setProfiles(profilesRes.data as UserProfile[]);
+    if (rolesRes.data) setUserRoles(rolesRes.data as UserRole[]);
+    if (logRes.data) setActivityLog(logRes.data as ActivityEntry[]);
   };
 
   const toggleApproval = async (profile: UserProfile) => {
-    const { error } = await supabase.from("profiles").update({ approved: !profile.approved }).eq("id", profile.id);
-    if (error) toast({ title: "Erro", description: error.message, variant: "destructive" });
-    else { toast({ title: profile.approved ? "Revogado" : "Aprovado" }); await logActivity(profile.approved ? "user_revoked" : "user_approved", "user", profile.user_id, { user_name: profile.full_name }); loadData(); }
+    const { error } = await supabase
+      .from("profiles").update({ approved: !profile.approved }).eq("id", profile.id);
+    if (error) {
+      toast({ title: "Erro", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: profile.approved ? "Usuário desaprovado" : "Usuário aprovado" });
+      await logActivity(
+        profile.approved ? "user_revoked" : "user_approved",
+        "user", profile.user_id,
+        { user_name: profile.full_name }
+      );
+      await loadData();
+    }
   };
 
   const setRole = async (userId: string, role: "admin" | "moderator" | "user") => {
     await supabase.from("user_roles").delete().eq("user_id", userId);
-    await supabase.from("user_roles").insert({ user_id: userId, role });
-    toast({ title: "Permissão atualizada" });
-    loadData();
+    const { error } = await supabase.from("user_roles").insert({ user_id: userId, role });
+    if (error) {
+      toast({ title: "Erro", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Permissão atualizada" });
+      const p = profiles.find(p => p.user_id === userId);
+      await logActivity("role_changed", "user", userId, { user_name: p?.full_name, new_role: role });
+      await loadData();
+    }
   };
 
-  if (loading) return <div className="flex justify-center py-12"><div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" /></div>;
-  if (!isAdmin) return <Card><CardContent className="py-12 text-center"><h2 className="text-xl font-bold">Acesso Restrito</h2></CardContent></Card>;
+  const getUserRole = (userId: string) => userRoles.find((r) => r.user_id === userId)?.role || "user";
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="h-8 w-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+      </div>
+    );
+  }
+
+  if (!isAdmin) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[60vh] gap-4">
+        <ShieldAlert className="h-16 w-16 text-destructive/60" />
+        <h2 className="text-xl font-semibold text-foreground">Acesso Restrito</h2>
+        <p className="text-muted-foreground text-sm">Você não tem permissão para acessar esta página.</p>
+      </div>
+    );
+  }
+
+  const approvedCount = profiles.filter((p) => p.approved).length;
+  const pendingCount = profiles.filter((p) => !p.approved).length;
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold font-display">Administração</h1>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Total</CardTitle></CardHeader><CardContent><span className="text-2xl font-bold">{profiles.length}</span></CardContent></Card>
-        <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Aprovados</CardTitle></CardHeader><CardContent><span className="text-2xl font-bold text-[hsl(var(--success))]">{profiles.filter(p => p.approved).length}</span></CardContent></Card>
-        <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Pendentes</CardTitle></CardHeader><CardContent><span className="text-2xl font-bold text-[hsl(var(--warning))]">{profiles.filter(p => !p.approved).length}</span></CardContent></Card>
+    <div className="p-6 space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold text-foreground font-display">Administração</h1>
+        <p className="text-sm text-muted-foreground">Gerencie usuários e permissões de acesso</p>
       </div>
-      <Card>
-        <CardContent className="pt-6">
-          <Table>
-            <TableHeader><TableRow><TableHead>Nome</TableHead><TableHead>Nível</TableHead><TableHead>Instituição</TableHead><TableHead>Status</TableHead><TableHead>Permissão</TableHead><TableHead>Ações</TableHead></TableRow></TableHeader>
-            <TableBody>
-              {profiles.map(p => (
-                <TableRow key={p.id}>
-                  <TableCell className="font-medium">{p.full_name || "Sem nome"}</TableCell>
-                  <TableCell>{p.role}</TableCell>
-                  <TableCell>{p.institution || "—"}</TableCell>
-                  <TableCell><Badge variant={p.approved ? "default" : "secondary"}>{p.approved ? "Aprovado" : "Pendente"}</Badge></TableCell>
-                  <TableCell>
-                    <Select value={userRoles.find(r => r.user_id === p.user_id)?.role || "user"} onValueChange={(v) => setRole(p.user_id, v as any)} disabled={p.user_id === user?.id}>
-                      <SelectTrigger className="w-[120px]"><SelectValue /></SelectTrigger>
-                      <SelectContent><SelectItem value="user">Usuário</SelectItem><SelectItem value="moderator">Moderador</SelectItem><SelectItem value="admin">Admin</SelectItem></SelectContent>
-                    </Select>
-                  </TableCell>
-                  <TableCell><Button size="sm" variant="outline" onClick={() => toggleApproval(p)} disabled={p.user_id === user?.id}>{p.approved ? "Revogar" : "Aprovar"}</Button></TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total de Usuários</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent><div className="text-2xl font-bold text-foreground">{profiles.length}</div></CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Aprovados</CardTitle>
+            <UserCheck className="h-4 w-4 text-primary" />
+          </CardHeader>
+          <CardContent><div className="text-2xl font-bold text-primary">{approvedCount}</div></CardContent>
+        </Card>
+        <Card className={pendingCount > 0 ? "border-[hsl(40,92%,50%)]/50 bg-[hsl(40,92%,50%)]/5" : ""}>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Pendentes {pendingCount > 0 && <Badge variant="destructive" className="ml-2 text-xs">{pendingCount} novo(s)</Badge>}
+            </CardTitle>
+            <UserX className="h-4 w-4 text-destructive" />
+          </CardHeader>
+          <CardContent><div className="text-2xl font-bold text-destructive">{pendingCount}</div></CardContent>
+        </Card>
+      </div>
+
+      <Tabs defaultValue="users" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="users" className="gap-2"><Users className="h-4 w-4" /> Usuários</TabsTrigger>
+          <TabsTrigger value="activity" className="gap-2"><History className="h-4 w-4" /> Log de Atividades</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="users">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Shield className="h-5 w-5 text-primary" />
+                Gerenciamento de Usuários
+              </CardTitle>
+              <CardDescription>Aprove cadastros e defina níveis de permissão</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nome</TableHead>
+                    <TableHead>Nível Acadêmico</TableHead>
+                    <TableHead>Instituição</TableHead>
+                    <TableHead>Laboratório</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Permissão</TableHead>
+                    <TableHead className="text-right">Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {profiles.map((profile) => (
+                    <TableRow key={profile.id} className={!profile.approved ? "bg-[hsl(40,92%,50%)]/5" : ""}>
+                      <TableCell>
+                        <button className="font-medium hover:text-primary hover:underline text-left" onClick={() => setSelectedProfile(profile)}>
+                          {profile.full_name || "Sem nome"}
+                        </button>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground text-sm">{profile.role}</TableCell>
+                      <TableCell className="text-muted-foreground text-sm">{(profile as any).institution || "—"}</TableCell>
+                      <TableCell className="text-muted-foreground text-sm">{profile.laboratory}</TableCell>
+                      <TableCell>
+                        <Badge variant={profile.approved ? "default" : "destructive"} className="text-xs">
+                          {profile.approved ? "Aprovado" : "Pendente"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Select
+                          value={getUserRole(profile.user_id)}
+                          onValueChange={(val) => setRole(profile.user_id, val as "admin" | "moderator" | "user")}
+                          disabled={profile.user_id === user?.id}
+                        >
+                          <SelectTrigger className="w-[130px] h-8 text-xs"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="user">Usuário</SelectItem>
+                            <SelectItem value="moderator">Moderador</SelectItem>
+                            <SelectItem value="admin">Admin</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <Button size="sm" variant="ghost" onClick={() => setSelectedProfile(profile)} className="gap-1">
+                            <Eye className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant={profile.approved ? "outline" : "default"}
+                            onClick={() => toggleApproval(profile)}
+                            disabled={profile.user_id === user?.id}
+                            className="gap-1.5"
+                          >
+                            {profile.approved ? <><XCircle className="h-3.5 w-3.5" /> Revogar</> : <><CheckCircle className="h-3.5 w-3.5" /> Aprovar</>}
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {profiles.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center text-muted-foreground py-8">Nenhum usuário cadastrado</TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="activity">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <History className="h-5 w-5 text-primary" />
+                Registro de Atividades
+              </CardTitle>
+              <CardDescription>Últimas 50 ações registradas no sistema</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Data/Hora</TableHead>
+                    <TableHead>Usuário</TableHead>
+                    <TableHead>Ação</TableHead>
+                    <TableHead>Tipo</TableHead>
+                    <TableHead>Detalhes</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {activityLog.map((entry) => (
+                    <TableRow key={entry.id}>
+                      <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                        {new Date(entry.created_at).toLocaleString("pt-BR")}
+                      </TableCell>
+                      <TableCell className="text-sm font-medium">{entry.user_name || "—"}</TableCell>
+                      <TableCell>
+                        <Badge variant="secondary" className="text-xs">{formatAction(entry.action)}</Badge>
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{entry.entity_type}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground max-w-[200px] truncate">
+                        {Object.entries(entry.details || {}).map(([k, v]) => `${k}: ${v}`).join(", ") || "—"}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {activityLog.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center text-muted-foreground py-8">Nenhuma atividade registrada</TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+
+      {/* Profile detail dialog */}
+      <Dialog open={!!selectedProfile} onOpenChange={(open) => !open && setSelectedProfile(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5 text-primary" />
+              Detalhes do Usuário
+            </DialogTitle>
+          </DialogHeader>
+          {selectedProfile && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <DetailItem icon={<UserCheckIcon className="h-4 w-4" />} label="Nome" value={selectedProfile.full_name} />
+                <DetailItem icon={<GraduationCap className="h-4 w-4" />} label="Nível Acadêmico" value={selectedProfile.role} />
+                <DetailItem icon={<Building2 className="h-4 w-4" />} label="Instituição" value={(selectedProfile as any).institution || "—"} />
+                <DetailItem icon={<GraduationCap className="h-4 w-4" />} label="Programa" value={(selectedProfile as any).program || "—"} />
+                <DetailItem icon={<UserCheckIcon className="h-4 w-4" />} label="Orientador(a)" value={(selectedProfile as any).advisor || "—"} />
+                <DetailItem icon={<FlaskConical className="h-4 w-4" />} label="Laboratório" value={selectedProfile.laboratory} />
+                <DetailItem icon={<Clock className="h-4 w-4" />} label="Cadastro" value={new Date(selectedProfile.created_at).toLocaleDateString("pt-BR")} />
+                <div className="space-y-1">
+                  <span className="text-xs text-muted-foreground">Status</span>
+                  <div>
+                    <Badge variant={selectedProfile.approved ? "default" : "destructive"}>
+                      {selectedProfile.approved ? "Aprovado" : "Pendente"}
+                    </Badge>
+                  </div>
+                </div>
+              </div>
+              <div className="flex gap-2 pt-2">
+                <Button
+                  variant={selectedProfile.approved ? "outline" : "default"}
+                  onClick={() => { toggleApproval(selectedProfile); setSelectedProfile(null); }}
+                  disabled={selectedProfile.user_id === user?.id}
+                  className="gap-1.5 flex-1"
+                >
+                  {selectedProfile.approved ? <><XCircle className="h-4 w-4" /> Revogar Acesso</> : <><CheckCircle className="h-4 w-4" /> Aprovar Acesso</>}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
+}
+
+function DetailItem({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">{icon}{label}</div>
+      <p className="text-sm font-medium">{value || "—"}</p>
+    </div>
+  );
+}
+
+function formatAction(action: string): string {
+  const map: Record<string, string> = {
+    user_approved: "Usuário aprovado",
+    user_revoked: "Acesso revogado",
+    role_changed: "Permissão alterada",
+    database_created: "Banco criado",
+    database_deleted: "Banco excluído",
+    version_created: "Versão criada",
+    variable_added: "Variável adicionada",
+    variable_deleted: "Variável excluída",
+    profile_updated: "Perfil atualizado",
+    data_exported: "Dados exportados",
+  };
+  return map[action] || action;
 }
