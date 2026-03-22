@@ -9,8 +9,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/hooks/use-toast";
-import { CheckCircle, XCircle, Shield, ShieldAlert, Users, UserCheck, UserX, Eye, Clock, Building2, GraduationCap, UserCheck as UserCheckIcon, FlaskConical, History } from "lucide-react";
+import { CheckCircle, XCircle, Shield, ShieldAlert, Users, UserCheck, UserX, Eye, Clock, Building2, GraduationCap, UserCheck as UserCheckIcon, FlaskConical, History, HardDrive } from "lucide-react";
 import { logActivity } from "@/lib/activityLog";
+import BackupSettings from "@/components/BackupSettings";
 
 interface UserProfile {
   id: string;
@@ -160,6 +161,7 @@ export default function AdminPage() {
       <Tabs defaultValue="users" className="space-y-4">
         <TabsList>
           <TabsTrigger value="users" className="gap-2"><Users className="h-4 w-4" /> Usuários</TabsTrigger>
+          <TabsTrigger value="backup" className="gap-2"><HardDrive className="h-4 w-4" /> Backup</TabsTrigger>
           <TabsTrigger value="activity" className="gap-2"><History className="h-4 w-4" /> Log de Atividades</TabsTrigger>
         </TabsList>
 
@@ -242,6 +244,10 @@ export default function AdminPage() {
               </Table>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="backup">
+          <BackupSettings />
         </TabsContent>
 
         <TabsContent value="activity">
