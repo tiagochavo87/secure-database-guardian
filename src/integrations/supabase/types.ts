@@ -14,16 +14,283 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      activity_log: {
+        Row: {
+          action: string
+          created_at: string
+          details: Json | null
+          entity_id: string | null
+          entity_type: string
+          id: string
+          user_id: string
+          user_name: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          details?: Json | null
+          entity_id?: string | null
+          entity_type?: string
+          id?: string
+          user_id: string
+          user_name?: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          details?: Json | null
+          entity_id?: string | null
+          entity_type?: string
+          id?: string
+          user_id?: string
+          user_name?: string
+        }
+        Relationships: []
+      }
+      database_variables: {
+        Row: {
+          category: string
+          created_at: string
+          database_id: string
+          description: string | null
+          id: string
+          name: string
+          sort_order: number
+          variable_type: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          database_id: string
+          description?: string | null
+          id?: string
+          name: string
+          sort_order?: number
+          variable_type?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          database_id?: string
+          description?: string | null
+          id?: string
+          name?: string
+          sort_order?: number
+          variable_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "database_variables_database_id_fkey"
+            columns: ["database_id"]
+            isOneToOne: false
+            referencedRelation: "disease_databases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      database_versions: {
+        Row: {
+          created_at: string
+          created_by: string
+          data: Json | null
+          database_id: string
+          id: string
+          name: string
+          row_count: number
+          version_number: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          data?: Json | null
+          database_id: string
+          id?: string
+          name: string
+          row_count?: number
+          version_number?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          data?: Json | null
+          database_id?: string
+          id?: string
+          name?: string
+          row_count?: number
+          version_number?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "database_versions_database_id_fkey"
+            columns: ["database_id"]
+            isOneToOne: false
+            referencedRelation: "disease_databases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      disease_databases: {
+        Row: {
+          created_at: string
+          created_by: string
+          description: string | null
+          disease: string
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          description?: string | null
+          disease: string
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          disease?: string
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          advisor: string
+          approved: boolean
+          avatar_url: string | null
+          created_at: string
+          full_name: string
+          id: string
+          institution: string
+          laboratory: string
+          program: string
+          role: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          advisor?: string
+          approved?: boolean
+          avatar_url?: string | null
+          created_at?: string
+          full_name?: string
+          id?: string
+          institution?: string
+          laboratory?: string
+          program?: string
+          role?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          advisor?: string
+          approved?: boolean
+          avatar_url?: string | null
+          created_at?: string
+          full_name?: string
+          id?: string
+          institution?: string
+          laboratory?: string
+          program?: string
+          role?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+      version_backups: {
+        Row: {
+          backup_reason: string
+          created_at: string
+          created_by: string
+          data: Json | null
+          database_id: string
+          id: string
+          row_count: number
+          version_id: string
+          version_name: string
+          version_number: string
+        }
+        Insert: {
+          backup_reason?: string
+          created_at?: string
+          created_by: string
+          data?: Json | null
+          database_id: string
+          id?: string
+          row_count?: number
+          version_id: string
+          version_name: string
+          version_number: string
+        }
+        Update: {
+          backup_reason?: string
+          created_at?: string
+          created_by?: string
+          data?: Json | null
+          database_id?: string
+          id?: string
+          row_count?: number
+          version_id?: string
+          version_name?: string
+          version_number?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "version_backups_database_id_fkey"
+            columns: ["database_id"]
+            isOneToOne: false
+            referencedRelation: "disease_databases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "version_backups_version_id_fkey"
+            columns: ["version_id"]
+            isOneToOne: false
+            referencedRelation: "database_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "moderator" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +417,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "moderator", "user"],
+    },
   },
 } as const
