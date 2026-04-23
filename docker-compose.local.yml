@@ -1,0 +1,29 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: dblapoge
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - dblapoge_pgdata:/var/lib/postgresql/data
+
+  api:
+    build: ./backend/local-api
+    environment:
+      PORT: 3001
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/dblapoge
+      JWT_SECRET: troque-esta-chave
+      CORS_ORIGIN: http://localhost:8080
+      INITIAL_ADMIN_EMAIL: admin@local.test
+      INITIAL_ADMIN_PASSWORD: admin123456
+      INITIAL_ADMIN_NAME: Administrador Local
+    ports:
+      - "3001:3001"
+    depends_on:
+      - postgres
+
+volumes:
+  dblapoge_pgdata:
