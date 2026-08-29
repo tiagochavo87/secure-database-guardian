@@ -1,6 +1,6 @@
 # 🧬 Lab Atlas — LAPOGE
 
-**Lab Atlas** é uma plataforma web desenvolvida para o **Laboratório de Genética e Biodiversidade (LAPOGE)**, voltada ao gerenciamento de bancos de dados genômicos de doenças, com versionamento, backup automático, análises estatísticas e controle de acesso por papéis.
+**Lab Atlas** é uma plataforma web desenvolvida para o **Laboratório de Polimorfismos Genéticos (LAPOGE)**, voltada ao gerenciamento de bancos de dados genômicos de doenças, com versionamento, backup automático, análises estatísticas e controle de acesso por papéis.
 
 ---
 
