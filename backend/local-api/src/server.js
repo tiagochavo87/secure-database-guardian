@@ -1,19 +1,48 @@
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
+import helmet from "helmet";
 import morgan from "morgan";
+import rateLimit from "express-rate-limit";
 import { initDb, query } from "./db.js";
 import { TABLES, JSON_COLUMNS } from "./schema.js";
 import { buildSession, comparePassword, ensureInitialAdmin, getAuthUser, hashPassword, makeResetToken } from "./auth.js";
-import { canReadTable, canWriteTable } from "./permissions.js";
+import { canReadTable, canWriteTable, restrictProfileFields } from "./permissions.js";
 
 const app = express();
 const PORT = Number(process.env.PORT || 3001);
-const CORS_ORIGIN = process.env.CORS_ORIGIN || "http://localhost:8080";
+// Aceita uma lista separada por vírgula para permitir, por exemplo, o acesso
+// simultâneo via localhost (uso local) e via um domínio/túnel (acesso remoto).
+const CORS_ORIGINS = (process.env.CORS_ORIGIN || "http://localhost:8080")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
 
-app.use(cors({ origin: CORS_ORIGIN, credentials: false }));
+app.set("trust proxy", 1);
+app.use(helmet());
+app.use(cors({
+  origin(origin, callback) {
+    if (!origin || CORS_ORIGINS.includes(origin)) return callback(null, true);
+    return callback(new Error("Origem não permitida pela política de CORS"));
+  },
+  credentials: false,
+}));
 app.use(express.json({ limit: "25mb" }));
 app.use(morgan("dev"));
+
+// Limite genérico para toda a API, evitando varreduras/força bruta em massa.
+app.use(rateLimit({ windowMs: 15 * 60 * 1000, limit: 300, standardHeaders: true, legacyHeaders: false }));
+
+// Limite mais restrito para rotas sensíveis de autenticação (login, cadastro,
+// reset de senha), que são o alvo mais óbvio de força bruta quando a
+// instalação fica exposta para acesso remoto.
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Muitas tentativas. Aguarde alguns minutos e tente novamente." },
+});
 
 app.get('/health', (_req, res) => {
   res.json({ ok: true, service: 'dblapoge-local-api' });
@@ -29,10 +58,11 @@ function requireAuth(req, res, next) {
   next();
 }
 
-app.post('/auth/register', async (req, res) => {
+app.post('/auth/register', authLimiter, async (req, res) => {
   try {
     const { email, password, metadata } = req.body || {};
     if (!email || !password) return res.status(400).json({ error: 'Email e senha são obrigatórios' });
+    if (String(password).length < 6) return res.status(400).json({ error: 'Senha inválida' });
     const existing = await query('SELECT id FROM users WHERE email = $1', [email]);
     if (existing.rows.length) return res.status(409).json({ error: 'Email já cadastrado' });
 
@@ -41,9 +71,17 @@ app.post('/auth/register', async (req, res) => {
     const user = inserted.rows[0];
 
     await query(`
-      INSERT INTO profiles (user_id, full_name, approved, laboratory)
-      VALUES ($1, $2, false, 'LAPOGE')
-    `, [user.id, metadata?.full_name || '']);
+      INSERT INTO profiles (user_id, full_name, approved, laboratory, role, institution, program, advisor)
+      VALUES ($1, $2, false, $3, $4, $5, $6, $7)
+    `, [
+      user.id,
+      metadata?.full_name || '',
+      metadata?.laboratory || 'LAPOGE',
+      metadata?.role || '',
+      metadata?.institution || '',
+      metadata?.program || '',
+      metadata?.advisor || '',
+    ]);
     await query(`INSERT INTO user_roles (user_id, role) VALUES ($1, 'user')`, [user.id]);
 
     res.json({ data: { user: { id: user.id, email: user.email, user_metadata: { full_name: metadata?.full_name || '' } } } });
@@ -53,9 +91,10 @@ app.post('/auth/register', async (req, res) => {
   }
 });
 
-app.post('/auth/login', async (req, res) => {
+app.post('/auth/login', authLimiter, async (req, res) => {
   try {
     const { email, password } = req.body || {};
+    if (!email || !password) return res.status(400).json({ error: 'Credenciais inválidas' });
     const { rows } = await query('SELECT id, email, password_hash FROM users WHERE email = $1', [email]);
     const user = rows[0];
     if (!user) return res.status(401).json({ error: 'Credenciais inválidas' });
@@ -87,26 +126,40 @@ app.patch('/auth/user', requireAuth, async (req, res) => {
   }
 });
 
-app.post('/auth/reset-password/request', async (req, res) => {
+app.post('/auth/reset-password/request', authLimiter, async (req, res) => {
   try {
-    const { email, redirectTo } = req.body || {};
+    const { email } = req.body || {};
+    if (!email) return res.status(400).json({ error: 'Email é obrigatório' });
     const { rows } = await query('SELECT id FROM users WHERE email = $1', [email]);
-    if (!rows.length) return res.json({ data: { ok: true } });
-    const token = makeResetToken();
-    await query(`
-      INSERT INTO password_reset_tokens (user_id, token, expires_at)
-      VALUES ($1, $2, now() + interval '1 hour')
-    `, [rows[0].id, token]);
-    const base = redirectTo || 'http://localhost:8080/reset-password';
-    const url = `${base}?token=${token}`;
-    res.json({ data: { ok: true, recovery_link: url } });
+
+    // Resposta sempre genérica: não revela se o email existe nem devolve o
+    // token ao chamador. O link de recuperação nunca deve trafegar de volta
+    // na resposta HTTP — quem pede o reset não é necessariamente o dono da
+    // conta, e isso permitiria takeover total da conta de qualquer usuário
+    // (inclusive admins) apenas sabendo o email.
+    if (rows.length) {
+      const token = makeResetToken();
+      await query(`
+        INSERT INTO password_reset_tokens (user_id, token, expires_at)
+        VALUES ($1, $2, now() + interval '1 hour')
+      `, [rows[0].id, token]);
+
+      // TODO(produção/acesso remoto): integrar um serviço de email (SMTP)
+      // real aqui e enviar o link só para o endereço cadastrado. Sem isso,
+      // a recuperação de senha só é operável por quem tiver acesso ao
+      // console/log do servidor (uso administrativo local).
+      const base = process.env.PUBLIC_APP_URL || 'http://localhost:8080/reset-password';
+      console.log(`[reset-password] link de recuperação para ${email}: ${base}?token=${token}`);
+    }
+
+    res.json({ data: { ok: true } });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Erro ao gerar link de recuperação' });
   }
 });
 
-app.post('/auth/reset-password/confirm', async (req, res) => {
+app.post('/auth/reset-password/confirm', authLimiter, async (req, res) => {
   try {
     const { token, password } = req.body || {};
     if (!token || !password || String(password).length < 6) return res.status(400).json({ error: 'Dados inválidos' });
@@ -142,7 +195,7 @@ app.get('/api/table/:table', requireAuth, async (req, res) => {
 
     const params = [];
     let sql = `SELECT ${columns} FROM ${qIdent(table)}`;
-    const where = buildWhere(filters, params);
+    const where = buildWhere(table, filters, params);
     if (where) sql += ` WHERE ${where}`;
     if (order?.column && TABLES[table].includes(order.column)) sql += ` ORDER BY ${qIdent(order.column)} ${order.ascending === false ? 'DESC' : 'ASC'}`;
     if (limit) sql += ` LIMIT ${limit}`;
@@ -160,13 +213,23 @@ app.post('/api/table/:table', requireAuth, async (req, res) => {
   const table = req.params.table;
   if (!TABLES[table]) return res.status(404).json({ error: 'Tabela não suportada' });
   const values = req.body?.values;
-  if (!canWriteTable(req.authUser, table, [], firstValue(values))) return res.status(403).json({ error: 'Sem permissão' });
+  const rowsToInsert = Array.isArray(values) ? values : [values];
+  if (!rowsToInsert.length) return res.status(400).json({ error: 'Nenhum dado informado' });
+
+  // Cada linha do lote precisa passar na checagem de permissão individualmente
+  // — validar só a primeira permitiria "contrabandear" linhas não autorizadas
+  // (ex.: registros de auditoria em nome de outro usuário) dentro do array.
+  for (const row of rowsToInsert) {
+    if (!canWriteTable(req.authUser, table, [], row || {})) {
+      return res.status(403).json({ error: 'Sem permissão' });
+    }
+  }
 
   try {
-    const rowsToInsert = Array.isArray(values) ? values : [values];
     const inserted = [];
     for (const row of rowsToInsert) {
-      const clean = sanitizePayload(table, row);
+      const payload = table === 'profiles' ? restrictProfileFields(req.authUser, row) : row;
+      const clean = sanitizePayload(table, payload);
       const keys = Object.keys(clean);
       const params = keys.map((key) => clean[key]);
       const placeholders = keys.map((_, idx) => `$${idx + 1}`).join(', ');
@@ -189,15 +252,18 @@ app.patch('/api/table/:table', requireAuth, async (req, res) => {
   if (!canWriteTable(req.authUser, table, filters, req.body?.values || {})) return res.status(403).json({ error: 'Sem permissão' });
 
   try {
-    const clean = sanitizePayload(table, req.body?.values || {});
+    const payload = table === 'profiles' ? restrictProfileFields(req.authUser, req.body?.values || {}) : (req.body?.values || {});
+    const clean = sanitizePayload(table, payload);
+    if (!Object.keys(clean).length) return res.status(400).json({ error: 'Nenhum campo válido para atualizar' });
     const params = [];
     const sets = Object.keys(clean).map((key) => {
       params.push(clean[key]);
       return `${qIdent(key)} = $${params.length}`;
     });
     let sql = `UPDATE ${qIdent(table)} SET ${sets.join(', ')}`;
-    const where = buildWhere(filters, params);
+    const where = buildWhere(table, filters, params);
     if (where) sql += ` WHERE ${where}`;
+    else return res.status(400).json({ error: 'Filtro obrigatório para atualização' });
     sql += ` RETURNING *`;
     const result = await query(sql, params);
     const data = req.body?.single ? (result.rows[0] || null) : result.rows;
@@ -217,8 +283,9 @@ app.delete('/api/table/:table', requireAuth, async (req, res) => {
   try {
     const params = [];
     let sql = `DELETE FROM ${qIdent(table)}`;
-    const where = buildWhere(filters, params);
+    const where = buildWhere(table, filters, params);
     if (where) sql += ` WHERE ${where}`;
+    else return res.status(400).json({ error: 'Filtro obrigatório para remoção' });
     sql += ` RETURNING *`;
     const result = await query(sql, params);
     const data = req.body?.single ? (result.rows[0] || null) : result.rows;
@@ -264,12 +331,9 @@ function sanitizePayload(table, payload) {
   return clean;
 }
 
-function firstValue(values) {
-  return Array.isArray(values) ? values[0] || {} : values || {};
-}
-
-function buildWhere(filters, params) {
-  const valid = (filters || []).filter((f) => f?.op === 'eq' && f?.field);
+function buildWhere(table, filters, params) {
+  const allowed = new Set(TABLES[table] || []);
+  const valid = (filters || []).filter((f) => f?.op === 'eq' && f?.field && allowed.has(f.field));
   if (!valid.length) return '';
   return valid.map((filter) => {
     params.push(filter.value);

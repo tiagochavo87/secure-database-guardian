@@ -3,7 +3,16 @@ import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import { query } from "./db.js";
 
-const JWT_SECRET = process.env.JWT_SECRET || "change-me";
+const INSECURE_DEFAULTS = new Set(["change-me", "troque-esta-chave", "secret", "changeme"]);
+const JWT_SECRET = process.env.JWT_SECRET;
+
+if (!JWT_SECRET || JWT_SECRET.length < 32 || INSECURE_DEFAULTS.has(JWT_SECRET)) {
+  throw new Error(
+    "JWT_SECRET ausente ou inseguro. Defina uma variável de ambiente JWT_SECRET com pelo menos 32 " +
+    "caracteres aleatórios (ex.: `openssl rand -hex 32`) antes de iniciar o servidor. " +
+    "Nunca reutilize o valor de exemplo do .env.example, especialmente em instalações acessíveis remotamente."
+  );
+}
 
 export function signToken(user) {
   return jwt.sign({ sub: user.id, email: user.email }, JWT_SECRET, { expiresIn: "7d" });
@@ -60,11 +69,21 @@ export async function getAuthUser(req) {
   }
 }
 
+const WEAK_ADMIN_PASSWORDS = new Set(["admin123456", "admin", "password", "123456"]);
+
 export async function ensureInitialAdmin() {
   const email = process.env.INITIAL_ADMIN_EMAIL;
   const password = process.env.INITIAL_ADMIN_PASSWORD;
   const fullName = process.env.INITIAL_ADMIN_NAME || "Administrador";
   if (!email || !password) return;
+
+  if (password.length < 8 || WEAK_ADMIN_PASSWORDS.has(password)) {
+    console.warn(
+      "[AVISO DE SEGURANÇA] INITIAL_ADMIN_PASSWORD é fraca ou é o valor de exemplo do repositório. " +
+      "Troque a senha do administrador imediatamente após o primeiro login, especialmente se esta " +
+      "instalação for acessível fora da rede local."
+    );
+  }
 
   const existing = await query(`SELECT id FROM users WHERE email = $1`, [email]);
   let userId = existing.rows[0]?.id;

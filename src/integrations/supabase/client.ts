@@ -228,7 +228,7 @@ export const supabase = {
     },
 
     async resetPasswordForEmail(email: string, { redirectTo }: { redirectTo?: string } = {}) {
-      return apiFetch<{ recovery_link?: string }>("/auth/reset-password/request", {
+      return apiFetch<{ ok: boolean }>("/auth/reset-password/request", {
         method: "POST",
         body: JSON.stringify({ email, redirectTo }),
       });

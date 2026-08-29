@@ -33,7 +33,6 @@ export default function LoginPage() {
   const [advisor, setAdvisor] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  const [recoveryLink, setRecoveryLink] = useState("");
   const [loading, setLoading] = useState(false);
 
   const resetForm = () => {
@@ -53,18 +52,15 @@ export default function LoginPage() {
 
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(""); setSuccess(""); setRecoveryLink("");
+    setError(""); setSuccess("");
     if (!email.trim()) { setError("Informe seu email."); return; }
     setLoading(true);
-    const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/reset-password`,
     });
     if (error) { setError(error.message); }
     else {
-      setSuccess(data?.recovery_link
-        ? "Link de recuperação gerado para ambiente local. Use o link abaixo."
-        : "Solicitação de recuperação registrada com sucesso.");
-      if (data?.recovery_link) setRecoveryLink(data.recovery_link);
+      setSuccess("Se este email estiver cadastrado, você receberá as instruções de recuperação em breve.");
     }
     setLoading(false);
   };
@@ -86,29 +82,21 @@ export default function LoginPage() {
     }
 
     setLoading(true);
-    const { data, error } = await supabase.auth.signUp({
+    const { error } = await supabase.auth.signUp({
       email, password,
-      options: { data: { full_name: fullName.trim() } },
-    });
-
-    if (error) { setError(error.message); setLoading(false); return; }
-
-    if (data.user) {
-      await new Promise((r) => setTimeout(r, 1000));
-      await supabase
-        .from("profiles")
-        .update({
-          full_name: fullName.trim(), role,
+      options: {
+        data: {
+          full_name: fullName.trim(),
+          role,
           laboratory: laboratory.trim(),
           institution: institution.trim(),
           program: program.trim(),
           advisor: advisor.trim(),
-        } as any)
-        .eq("user_id", data.user.id);
-    }
+        },
+      },
+    });
 
-    // Sign out immediately so they can't access until approved
-    await supabase.auth.signOut();
+    if (error) { setError(error.message); setLoading(false); return; }
 
     setSuccess("Cadastro realizado! Aguarde a aprovação do administrador para acessar o sistema.");
     setLoading(false);
