@@ -22,16 +22,38 @@
 **Troque a senha do admin assim que fizer o primeiro login**, especialmente se esta
 instalação ficar acessível fora da rede local (VPN, domínio público, túnel).
 
-## Acesso remoto
-Este backend não faz TLS nem gerencia certificados — ele foi pensado para rodar
-atrás de um proxy reverso (ex.: Caddy, Nginx, Traefik) que termina HTTPS antes
-de repassar para a porta 3001. Para expor a aplicação fora da rede local:
-- Nunca exponha a porta 5432 (Postgres) publicamente — só a porta do proxy/API.
-- Sirva a aplicação sempre via HTTPS; nunca em HTTP puro pela internet.
-- Ajuste `CORS_ORIGIN` (backend) e `VITE_API_URL` (frontend) para o domínio real.
-- Configure um serviço de email real para o reset de senha (ver comentário
-  `TODO(produção/acesso remoto)` em `backend/local-api/src/server.js`); sem isso,
-  o link de recuperação só é visível no log do servidor.
+## Acesso remoto (HTTPS automático com Caddy)
+O backend em si não faz TLS — por isso existe um segundo arquivo de compose,
+`docker-compose.remote.yml`, que sobe um proxy reverso [Caddy](https://caddyserver.com/)
+na frente de tudo: ele serve o build de produção do frontend, encaminha
+`/auth`, `/api` e `/health` para a API, e termina HTTPS automaticamente
+(Let's Encrypt se houver domínio público, certificado interno se for só
+`localhost`/IP privado). Só o Caddy publica porta para fora (80/443); API
+(3001) e Postgres (5432) ficam restritos a `127.0.0.1` no host.
+
+1. Preencha também `DOMAIN` no `.env` (raiz):
+   - domínio público real com DNS já apontando para este servidor → Caddy emite
+     Let's Encrypt sozinho (portas 80/443 precisam estar liberadas no firewall);
+   - `localhost` (padrão) → certificado interno, só para teste local — o
+     navegador vai avisar que o emissor não é confiável, o que é esperado.
+2. Configure `SMTP_HOST`/`SMTP_PORT`/`SMTP_USER`/`SMTP_PASS`/`MAIL_FROM` no `.env`
+   para o reset de senha enviar email de verdade. Sem isso, o link só aparece
+   no log do container `api` (`docker compose logs -f api`) — inviável para
+   quem não tem acesso ao servidor.
+3. Suba os dois arquivos de compose juntos:
+   ```
+   docker compose -f docker-compose.local.yml -f docker-compose.remote.yml up -d --build
+   ```
+4. Acesse `https://SEU_DOMINIO` (ou `https://localhost` em teste local).
+
+Não é preciso rodar `npm run dev` nem o passo 3-4 do "Subir rápido com Docker"
+nesse modo — o Caddy já serve o frontend buildado.
+
+Outros pontos para acesso remoto:
+- Ajuste `CORS_ORIGIN` só se algum cliente acessar a API em uma origem
+  diferente do domínio do Caddy (o uso normal já é mesma origem, sem CORS).
+- Revise regularmente `npm audit` (frontend e `backend/local-api`) e mantenha
+  as dependências atualizadas.
 
 ## Rotas principais da API
 - `GET /health`

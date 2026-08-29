@@ -8,6 +8,7 @@ import { initDb, query } from "./db.js";
 import { TABLES, JSON_COLUMNS } from "./schema.js";
 import { buildSession, comparePassword, ensureInitialAdmin, getAuthUser, hashPassword, makeResetToken } from "./auth.js";
 import { canReadTable, canWriteTable, restrictProfileFields } from "./permissions.js";
+import { sendPasswordResetEmail } from "./mailer.js";
 
 const app = express();
 const PORT = Number(process.env.PORT || 3001);
@@ -144,12 +145,13 @@ app.post('/auth/reset-password/request', authLimiter, async (req, res) => {
         VALUES ($1, $2, now() + interval '1 hour')
       `, [rows[0].id, token]);
 
-      // TODO(produção/acesso remoto): integrar um serviço de email (SMTP)
-      // real aqui e enviar o link só para o endereço cadastrado. Sem isso,
-      // a recuperação de senha só é operável por quem tiver acesso ao
-      // console/log do servidor (uso administrativo local).
       const base = process.env.PUBLIC_APP_URL || 'http://localhost:8080/reset-password';
-      console.log(`[reset-password] link de recuperação para ${email}: ${base}?token=${token}`);
+      const link = `${base}?token=${token}`;
+      // Envia por SMTP se configurado; caso contrário cai no fallback de log
+      // (ver aviso emitido no boot em mailer.js) — nunca volta na resposta HTTP.
+      await sendPasswordResetEmail(email, link).catch((err) => {
+        console.error('[reset-password] falha ao enviar email:', err.message);
+      });
     }
 
     res.json({ data: { ok: true } });

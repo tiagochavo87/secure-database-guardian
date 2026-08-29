@@ -1,0 +1,35 @@
+# Proxy reverso com HTTPS automático.
+#
+# - Se DOMAIN for um domínio público real (ex.: dblapoge.suainstituicao.org)
+#   com DNS apontando para este servidor e as portas 80/443 liberadas, o
+#   Caddy obtém e renova um certificado Let's Encrypt sozinho.
+# - Se DOMAIN ficar "localhost" (padrão) ou for um IP/hostname privado, o
+#   Caddy usa sua CA interna (certificado confiável só localmente — o
+#   navegador vai avisar que não reconhece o emissor, o que é esperado em
+#   testes locais ou atrás de VPN sem domínio público).
+{$DOMAIN:localhost} {
+	encode gzip
+
+	# Backend Node/Express: autenticação e API de dados. Os cabeçalhos de
+	# segurança dessas respostas já vêm do helmet() no server.js — não
+	# duplicar aqui (evita valores repetidos/conflitantes, ex.:
+	# X-Frame-Options: DENY,SAMEORIGIN).
+	@backend path /health /auth/* /api/*
+	handle @backend {
+		reverse_proxy api:3001
+	}
+
+	# Frontend (build estático do Vite): aqui sim precisamos setar os
+	# cabeçalhos, já que é o Caddy (não o Express) quem serve esses arquivos.
+	handle {
+		root * /srv
+		try_files {path} /index.html
+		file_server
+		header {
+			Strict-Transport-Security "max-age=31536000; includeSubDomains"
+			X-Content-Type-Options "nosniff"
+			X-Frame-Options "DENY"
+			Referrer-Policy "strict-origin-when-cross-origin"
+		}
+	}
+}

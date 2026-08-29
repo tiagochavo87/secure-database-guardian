@@ -1,6 +1,10 @@
 import type { AuthChangeEvent, Session, User } from "@/integrations/local-auth/types";
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
+// "??" (não "||") é importante aqui: em produção atrás de um proxy reverso
+// (ver docker-compose.remote.yml) o build define VITE_API_URL="" de propósito,
+// para que as chamadas sejam relativas ao próprio domínio (mesma origem,
+// evitando CORS). Com "||" essa string vazia cairia no fallback errado.
+const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3001";
 const TOKEN_KEY = "dblapoge_access_token";
 
 interface ApiError {

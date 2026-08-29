@@ -1,0 +1,33 @@
+# Overlay para instalações com acesso remoto. Uso:
+#   docker compose -f docker-compose.local.yml -f docker-compose.remote.yml up -d --build
+#
+# Adiciona um proxy reverso Caddy que:
+#   - serve o build de produção do frontend
+#   - encaminha /auth, /api e /health para a API
+#   - termina HTTPS (Let's Encrypt automático se DOMAIN for um domínio
+#     público real; certificado local/interno se DOMAIN ficar "localhost"
+#     ou um IP/hostname privado — ver Caddyfile)
+#
+# Só esse serviço precisa expor porta para a rede externa (80/443). A API e
+# o Postgres continuam alcançáveis apenas via rede interna do Docker.
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+      args:
+        VITE_API_URL: ""
+    environment:
+      DOMAIN: ${DOMAIN:-localhost}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api
+
+volumes:
+  caddy_data:
+  caddy_config:
