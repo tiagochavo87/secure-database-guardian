@@ -4,9 +4,12 @@ services:
     environment:
       POSTGRES_DB: dblapoge
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Defina POSTGRES_PASSWORD no arquivo .env (veja .env.docker.example)}
+    # Só expõe a porta do Postgres ao host local (127.0.0.1). Em uma
+    # instalação com acesso remoto, o banco NÃO deve ficar acessível pela
+    # rede externa — apenas a API (porta 3001) precisa ser exposta.
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - dblapoge_pgdata:/var/lib/postgresql/data
 
@@ -14,12 +17,13 @@ services:
     build: ./backend/local-api
     environment:
       PORT: 3001
-      DATABASE_URL: postgres://postgres:postgres@postgres:5432/dblapoge
-      JWT_SECRET: troque-esta-chave
-      CORS_ORIGIN: http://localhost:8080
-      INITIAL_ADMIN_EMAIL: admin@local.test
-      INITIAL_ADMIN_PASSWORD: admin123456
-      INITIAL_ADMIN_NAME: Administrador Local
+      DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD:?Defina POSTGRES_PASSWORD no arquivo .env}@postgres:5432/dblapoge
+      JWT_SECRET: ${JWT_SECRET:?Defina JWT_SECRET no arquivo .env (gere com: openssl rand -hex 32)}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:8080}
+      PUBLIC_APP_URL: ${PUBLIC_APP_URL:-http://localhost:8080/reset-password}
+      INITIAL_ADMIN_EMAIL: ${INITIAL_ADMIN_EMAIL:-admin@local.test}
+      INITIAL_ADMIN_PASSWORD: ${INITIAL_ADMIN_PASSWORD:?Defina INITIAL_ADMIN_PASSWORD no arquivo .env}
+      INITIAL_ADMIN_NAME: ${INITIAL_ADMIN_NAME:-Administrador Local}
     ports:
       - "3001:3001"
     depends_on:
