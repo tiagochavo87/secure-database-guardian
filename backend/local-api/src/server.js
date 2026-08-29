@@ -1,4 +1,7 @@
 import "dotenv/config";
+import path from "path";
+import { fileURLToPath } from "url";
+import fs from "fs";
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
@@ -349,6 +352,20 @@ function projectSelection(table, data, select) {
   if (!cols.length) return data;
   const pick = (row) => Object.fromEntries(cols.map((col) => [col, row?.[col]]));
   return Array.isArray(data) ? data.map(pick) : pick(data);
+}
+
+// Modo "processo único" (usado na instalação Windows, ver windows/):
+// o próprio backend serve o build estático do frontend, dispensando um
+// proxy (Caddy) separado. Em Docker isso fica desligado (Caddy assume esse
+// papel) porque a pasta não existe dentro do container da API.
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const FRONTEND_DIST_PATH = process.env.FRONTEND_DIST_PATH || path.join(__dirname, "../../../dist");
+if (fs.existsSync(path.join(FRONTEND_DIST_PATH, "index.html"))) {
+  app.use(express.static(FRONTEND_DIST_PATH));
+  app.get(/^(?!\/api\/|\/auth\/|\/health).*/, (_req, res) => {
+    res.sendFile(path.join(FRONTEND_DIST_PATH, "index.html"));
+  });
+  console.log(`Servindo frontend estático de ${FRONTEND_DIST_PATH}`);
 }
 
 await initDb();
