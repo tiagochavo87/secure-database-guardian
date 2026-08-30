@@ -1,0 +1,16 @@
+# Build de produção do frontend, servido depois pelo Caddy (ver Caddyfile e
+# docker-compose.remote.yml). VITE_API_URL fica vazio de propósito: o Caddy
+# serve o frontend e faz proxy da API no MESMO domínio/origem, então as
+# chamadas do cliente usam caminhos relativos (sem CORS, sem porta 3001 exposta).
+FROM node:20-bookworm-slim AS build
+WORKDIR /app
+ARG VITE_API_URL=""
+ENV VITE_API_URL=${VITE_API_URL}
+COPY package*.json ./
+RUN npm ci
+COPY . .
+RUN npm run build
+
+FROM caddy:2-alpine
+COPY --from=build /app/dist /srv
+COPY Caddyfile /etc/caddy/Caddyfile

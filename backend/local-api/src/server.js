@@ -1,4 +1,7 @@
 import "dotenv/config";
+import path from "path";
+import { fileURLToPath } from "url";
+import fs from "fs";
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
@@ -8,6 +11,7 @@ import { initDb, query } from "./db.js";
 import { TABLES, JSON_COLUMNS } from "./schema.js";
 import { buildSession, comparePassword, ensureInitialAdmin, getAuthUser, hashPassword, makeResetToken } from "./auth.js";
 import { canReadTable, canWriteTable, restrictProfileFields } from "./permissions.js";
+import { sendPasswordResetEmail } from "./mailer.js";
 
 const app = express();
 const PORT = Number(process.env.PORT || 3001);
@@ -144,12 +148,13 @@ app.post('/auth/reset-password/request', authLimiter, async (req, res) => {
         VALUES ($1, $2, now() + interval '1 hour')
       `, [rows[0].id, token]);
 
-      // TODO(produção/acesso remoto): integrar um serviço de email (SMTP)
-      // real aqui e enviar o link só para o endereço cadastrado. Sem isso,
-      // a recuperação de senha só é operável por quem tiver acesso ao
-      // console/log do servidor (uso administrativo local).
       const base = process.env.PUBLIC_APP_URL || 'http://localhost:8080/reset-password';
-      console.log(`[reset-password] link de recuperação para ${email}: ${base}?token=${token}`);
+      const link = `${base}?token=${token}`;
+      // Envia por SMTP se configurado; caso contrário cai no fallback de log
+      // (ver aviso emitido no boot em mailer.js) — nunca volta na resposta HTTP.
+      await sendPasswordResetEmail(email, link).catch((err) => {
+        console.error('[reset-password] falha ao enviar email:', err.message);
+      });
     }
 
     res.json({ data: { ok: true } });
@@ -347,6 +352,20 @@ function projectSelection(table, data, select) {
   if (!cols.length) return data;
   const pick = (row) => Object.fromEntries(cols.map((col) => [col, row?.[col]]));
   return Array.isArray(data) ? data.map(pick) : pick(data);
+}
+
+// Modo "processo único" (usado na instalação Windows, ver windows/):
+// o próprio backend serve o build estático do frontend, dispensando um
+// proxy (Caddy) separado. Em Docker isso fica desligado (Caddy assume esse
+// papel) porque a pasta não existe dentro do container da API.
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const FRONTEND_DIST_PATH = process.env.FRONTEND_DIST_PATH || path.join(__dirname, "../../../dist");
+if (fs.existsSync(path.join(FRONTEND_DIST_PATH, "index.html"))) {
+  app.use(express.static(FRONTEND_DIST_PATH));
+  app.get(/^(?!\/api\/|\/auth\/|\/health).*/, (_req, res) => {
+    res.sendFile(path.join(FRONTEND_DIST_PATH, "index.html"));
+  });
+  console.log(`Servindo frontend estático de ${FRONTEND_DIST_PATH}`);
 }
 
 await initDb();
